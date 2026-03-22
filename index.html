@@ -398,6 +398,12 @@
 <script>
 const NTFY = 'https://ntfy.sh';
 
+function getDeviceId() {
+  let id = localStorage.getItem('nurse_device_id');
+  if (!id) { id = Math.random().toString(36).substring(2, 10); localStorage.setItem('nurse_device_id', id); }
+  return id;
+}
+
 const TYPES = {
   milk:   { icon: '🍼', label: 'ミルク',  msg: 'ミルクの準備をお願い！', priority: 'default' },
   change: { icon: '🔄', label: '変わって', msg: '交代してください！',    priority: 'high' },
@@ -452,7 +458,7 @@ async function sendCall(type, btn) {
         title:    `ナースコール: ${t.label}`,
         message:  t.msg,
         priority: t.priority === 'high' ? 4 : 3,
-        tags:     [type === 'milk' ? 'baby_bottle' : type === 'change' ? 'arrows_counterclockwise' : 'mega'],
+        tags:     [type === 'milk' ? 'baby_bottle' : type === 'change' ? 'arrows_counterclockwise' : 'mega', `from-${getDeviceId()}`],
       }),
     });
     if (!res.ok) throw new Error(res.status);
@@ -498,6 +504,8 @@ function connectSSE() {
 }
 
 function onReceive(data) {
+  const tags = data.tags || [];
+  if (tags.includes(`from-${getDeviceId()}`)) return;
   const msg = data.message || '';
   let t = TYPES.other;
   if (msg.includes('ミルク'))   t = TYPES.milk;
