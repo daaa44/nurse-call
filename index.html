@@ -444,14 +444,16 @@ async function sendCall(type, btn) {
 
   const t = TYPES[type];
   try {
-    const res = await fetch(`${NTFY}/${channel}`, {
+    const res = await fetch(`${NTFY}`, {
       method: 'POST',
-      headers: {
-        'Title':    `ナースコール: ${t.label}`,
-        'Priority': t.priority,
-        'Tags':     type === 'milk' ? 'baby_bottle' : type === 'change' ? 'arrows_counterclockwise' : 'mega',
-      },
-      body: t.msg,
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        topic:    channel,
+        title:    `ナースコール: ${t.label}`,
+        message:  t.msg,
+        priority: t.priority === 'high' ? 4 : 3,
+        tags:     [type === 'milk' ? 'baby_bottle' : type === 'change' ? 'arrows_counterclockwise' : 'mega'],
+      }),
     });
     if (!res.ok) throw new Error(res.status);
     showToast(`${t.icon} 送信しました！`);
