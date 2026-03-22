@@ -384,10 +384,15 @@
     <label>チャンネル名</label>
     <input type="text" id="channelInput" placeholder="例: family-yamada-2024" autocomplete="off" autocapitalize="none">
     <div class="hint">
-      半角英数字とハイフンのみ。<br>
-      他の人に推測されにくい名前にしてください。<br>
-      （例: family-名字-生年など）
+      半角英数字とハイフンのみ。他の人に推測されにくい名前にしてください。
     </div>
+    <label style="margin-top:16px;">あなたの番号（2人で別々を選ぶ）</label>
+    <select id="roleSelect" onchange="updateNtfyHint()" style="width:100%;padding:14px 16px;border:2px solid #e5e7eb;border-radius:14px;font-size:16px;outline:none;background:white;margin-bottom:4px;">
+      <option value="">選んでください</option>
+      <option value="1">① （例：夫・パパ）</option>
+      <option value="2">② （例：妻・ママ）</option>
+    </select>
+    <div class="hint" id="ntfyHint" style="margin-top:6px;color:#5b4fcf;font-weight:600;"></div>
     <div class="modal-actions">
       <button class="btn-cancel" onclick="closeSettings()">キャンセル</button>
       <button class="btn-save"   onclick="saveSettings()">保存する</button>
@@ -411,14 +416,19 @@ const TYPES = {
 };
 
 let channel = '';
+let role = '';   // '1' or '2'
 let es = null;
 let sending = false;
+
+function sendChannel()  { return `${channel}-${role}`; }
+function recvChannel()  { return `${channel}-${role === '1' ? '2' : '1'}`; }
 
 // ---- Init ----
 function init() {
   channel = localStorage.getItem('nurse_channel') || '';
+  role    = localStorage.getItem('nurse_role')    || '';
   updateStatus();
-  if (channel) connectSSE();
+  if (channel && role) connectSSE();
   requestNotifPermission();
 
   if ('serviceWorker' in navigator) {
@@ -430,12 +440,12 @@ function init() {
 function updateStatus() {
   const dot  = document.getElementById('statusDot');
   const text = document.getElementById('statusText');
-  if (!channel) {
+  if (!channel || !role) {
     dot.className  = 'status-dot setup';
     text.innerHTML = 'チャンネル未設定 — ⚙️をタップして設定';
   } else {
     dot.className  = es ? 'status-dot connected' : 'status-dot disconnected';
-    text.innerHTML = `チャンネル: <strong>${channel}</strong>`;
+    text.innerHTML = `${role === '1' ? '①' : '②'} <strong>${channel}</strong>`;
   }
 }
 
@@ -454,7 +464,7 @@ async function sendCall(type, btn) {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        topic:    channel,
+        topic:    sendChannel(),
         title:    `ナースコール: ${t.label}`,
         message:  t.msg,
         priority: t.priority === 'high' ? 4 : 3,
@@ -485,7 +495,7 @@ function connectSSE() {
   if (es) { es.close(); es = null; }
   if (!channel) return;
 
-  es = new EventSource(`${NTFY}/${channel}/sse`);
+  es = new EventSource(`${NTFY}/${recvChannel()}/sse`);
 
   es.onopen = () => updateStatus();
 
@@ -601,6 +611,8 @@ function showToast(msg) {
 // ---- Settings ----
 function openSettings() {
   document.getElementById('channelInput').value = channel;
+  document.getElementById('roleSelect').value   = role;
+  updateNtfyHint();
   document.getElementById('modalBg').classList.add('open');
   setTimeout(() => document.getElementById('channelInput').focus(), 100);
 }
@@ -609,13 +621,28 @@ function closeSettings() {
   document.getElementById('modalBg').classList.remove('open');
 }
 
-function saveSettings() {
-  const val = document.getElementById('channelInput').value.trim().replace(/[^a-zA-Z0-9\-_]/g, '');
-  if (!val) { showToast('チャンネル名を入力してください'); return; }
+function updateNtfyHint() {
+  const ch   = document.getElementById('channelInput').value.trim().replace(/[^a-zA-Z0-9\-_]/g, '');
+  const r    = document.getElementById('roleSelect').value;
+  const hint = document.getElementById('ntfyHint');
+  if (ch && r) {
+    const recv = `${ch}-${r === '1' ? '2' : '1'}`;
+    hint.innerHTML = `📱 ntfy アプリで購読するチャンネル名: <strong>${recv}</strong>`;
+  } else {
+    hint.innerHTML = '';
+  }
+}
 
-  const changed = val !== channel;
-  channel = val;
+function saveSettings() {
+  const val  = document.getElementById('channelInput').value.trim().replace(/[^a-zA-Z0-9\-_]/g, '');
+  const newRole = document.getElementById('roleSelect').value;
+  if (!val)     { showToast('チャンネル名を入力してください'); return; }
+  if (!newRole) { showToast('番号を選んでください'); return; }
+
+  const changed = val !== channel || newRole !== role;
+  channel = val; role = newRole;
   localStorage.setItem('nurse_channel', channel);
+  localStorage.setItem('nurse_role',    role);
   closeSettings();
   updateStatus();
   if (changed) connectSSE();
@@ -626,6 +653,7 @@ function saveSettings() {
 document.getElementById('channelInput').addEventListener('keydown', e => {
   if (e.key === 'Enter') saveSettings();
 });
+document.getElementById('channelInput').addEventListener('input', updateNtfyHint);
 
 // Close modal on background tap
 document.getElementById('modalBg').addEventListener('click', e => {
