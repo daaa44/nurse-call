@@ -1,0 +1,18 @@
+{
+  "name": "ナースコール",
+  "short_name": "ナースコール",
+  "description": "家族間の呼び出しアプリ",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#f0f2f8",
+  "theme_color": "#5b4fcf",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

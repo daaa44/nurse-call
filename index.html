@@ -1,0 +1,628 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="theme-color" content="#5b4fcf">
+  <title>ナースコール</title>
+  <link rel="manifest" href="manifest.json">
+  <link rel="apple-touch-icon" href="icon.svg">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+    :root {
+      --primary: #5b4fcf;
+      --bg: #f0f2f8;
+      --card: #ffffff;
+      --text: #1c1c2e;
+      --muted: #6b7280;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Hiragino Sans', 'Yu Gothic UI', sans-serif;
+      background: var(--bg);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      padding-bottom: env(safe-area-inset-bottom);
+    }
+
+    header {
+      background: linear-gradient(135deg, #5b4fcf 0%, #8b5cf6 100%);
+      color: white;
+      padding: 16px 20px;
+      padding-top: calc(16px + env(safe-area-inset-top));
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    header h1 { font-size: 20px; font-weight: 700; letter-spacing: -0.3px; }
+
+    .gear-btn {
+      background: rgba(255,255,255,0.2);
+      border: none;
+      color: white;
+      width: 38px;
+      height: 38px;
+      border-radius: 50%;
+      font-size: 18px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .main {
+      flex: 1;
+      padding: 20px 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      max-width: 500px;
+      margin: 0 auto;
+      width: 100%;
+    }
+
+    .status-bar {
+      background: var(--card);
+      border-radius: 14px;
+      padding: 12px 16px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.06);
+    }
+
+    .status-dot {
+      width: 9px;
+      height: 9px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+    .status-dot.connected { background: #22c55e; animation: blink 2s infinite; }
+    .status-dot.disconnected { background: #ef4444; }
+    .status-dot.setup { background: #f59e0b; }
+
+    @keyframes blink {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.4; }
+    }
+
+    .status-text { font-size: 13px; color: var(--muted); flex: 1; }
+    .status-text strong { color: var(--text); }
+
+    .section-label {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 2px;
+    }
+
+    .buttons-grid {
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    .call-btn {
+      border: none;
+      border-radius: 22px;
+      cursor: pointer;
+      box-shadow: 0 6px 24px rgba(0,0,0,0.14);
+      transition: transform 0.1s ease, box-shadow 0.1s ease;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .call-btn:active {
+      transform: scale(0.96);
+      box-shadow: 0 2px 10px rgba(0,0,0,0.12);
+    }
+
+    .call-btn-inner {
+      display: flex;
+      align-items: center;
+      padding: 22px 24px;
+      gap: 18px;
+    }
+
+    .call-btn .icon { font-size: 44px; line-height: 1; flex-shrink: 0; }
+    .call-btn .label { font-size: 26px; font-weight: 800; color: white; letter-spacing: -0.5px; }
+    .call-btn .sublabel { font-size: 13px; color: rgba(255,255,255,0.8); margin-top: 3px; }
+
+    .btn-milk   { background: linear-gradient(135deg, #f472b6 0%, #ec4899 50%, #db2777 100%); }
+    .btn-change { background: linear-gradient(135deg, #60a5fa 0%, #3b82f6 50%, #2563eb 100%); }
+    .btn-other  { background: linear-gradient(135deg, #34d399 0%, #10b981 50%, #059669 100%); }
+
+    /* Ripple effect */
+    .ripple {
+      position: absolute;
+      border-radius: 50%;
+      background: rgba(255,255,255,0.4);
+      transform: scale(0);
+      animation: ripple-anim 0.6s linear;
+      pointer-events: none;
+    }
+    @keyframes ripple-anim {
+      to { transform: scale(4); opacity: 0; }
+    }
+
+    /* Notifications */
+    .recv-section {
+      background: var(--card);
+      border-radius: 16px;
+      padding: 16px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.06);
+    }
+
+    .recv-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 12px;
+    }
+
+    .recv-header .section-label { margin-bottom: 0; }
+
+    .clear-btn {
+      font-size: 12px;
+      color: var(--muted);
+      background: none;
+      border: none;
+      cursor: pointer;
+      padding: 2px 6px;
+    }
+
+    .notif-list {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      max-height: 220px;
+      overflow-y: auto;
+    }
+
+    .empty-msg {
+      text-align: center;
+      color: var(--muted);
+      font-size: 14px;
+      padding: 24px 0;
+    }
+
+    .notif-item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 11px 14px;
+      background: var(--bg);
+      border-radius: 12px;
+      animation: slide-in 0.25s ease;
+    }
+
+    @keyframes slide-in {
+      from { opacity: 0; transform: translateY(-6px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    .notif-icon { font-size: 26px; }
+    .notif-body { flex: 1; }
+    .notif-name { font-size: 15px; font-weight: 700; color: var(--text); }
+    .notif-msg  { font-size: 12px; color: var(--muted); margin-top: 1px; }
+    .notif-time { font-size: 12px; color: var(--muted); white-space: nowrap; }
+
+    /* Flash overlay */
+    .flash {
+      position: fixed;
+      inset: 0;
+      background: rgba(255,255,255,0.7);
+      z-index: 999;
+      pointer-events: none;
+      animation: flash-anim 0.4s ease forwards;
+    }
+    @keyframes flash-anim {
+      0%   { opacity: 1; }
+      100% { opacity: 0; }
+    }
+
+    /* Modal */
+    .modal-bg {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.5);
+      z-index: 100;
+      align-items: flex-end;
+      justify-content: center;
+    }
+    .modal-bg.open { display: flex; }
+
+    .modal {
+      background: var(--card);
+      border-radius: 28px 28px 0 0;
+      padding: 28px 24px;
+      padding-bottom: calc(28px + env(safe-area-inset-bottom));
+      width: 100%;
+      max-width: 500px;
+    }
+
+    .modal h2 { font-size: 20px; margin-bottom: 8px; }
+    .modal .desc { font-size: 14px; color: var(--muted); margin-bottom: 20px; }
+    .modal label { display: block; font-size: 13px; font-weight: 600; color: var(--muted); margin-bottom: 6px; }
+
+    .modal input {
+      width: 100%;
+      padding: 14px 16px;
+      border: 2px solid #e5e7eb;
+      border-radius: 14px;
+      font-size: 16px;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+    .modal input:focus { border-color: var(--primary); }
+
+    .hint { font-size: 12px; color: var(--muted); margin-top: 7px; line-height: 1.5; }
+
+    .modal-actions { display: flex; gap: 10px; margin-top: 22px; }
+
+    .btn-cancel {
+      flex: 1;
+      padding: 15px;
+      border: 2px solid #e5e7eb;
+      border-radius: 14px;
+      background: white;
+      font-size: 16px;
+      cursor: pointer;
+      font-weight: 600;
+    }
+
+    .btn-save {
+      flex: 2;
+      padding: 15px;
+      border: none;
+      border-radius: 14px;
+      background: var(--primary);
+      color: white;
+      font-size: 16px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+
+    /* Toast */
+    .toast {
+      position: fixed;
+      top: calc(80px + env(safe-area-inset-top));
+      left: 50%;
+      transform: translateX(-50%);
+      background: #1c1c2e;
+      color: white;
+      padding: 12px 22px;
+      border-radius: 40px;
+      font-size: 15px;
+      font-weight: 600;
+      z-index: 500;
+      white-space: nowrap;
+      animation: toast-in 0.3s ease;
+      pointer-events: none;
+    }
+    @keyframes toast-in {
+      from { opacity: 0; transform: translateX(-50%) translateY(-10px); }
+      to   { opacity: 1; transform: translateX(-50%) translateY(0); }
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>📡 ナースコール</h1>
+  <button class="gear-btn" onclick="openSettings()">⚙️</button>
+</header>
+
+<div class="main">
+
+  <div class="status-bar" id="statusBar">
+    <div class="status-dot setup" id="statusDot"></div>
+    <div class="status-text" id="statusText">チャンネル未設定 — ⚙️をタップして設定</div>
+  </div>
+
+  <div>
+    <div class="section-label">呼び出し送信</div>
+  </div>
+
+  <div class="buttons-grid">
+    <button class="call-btn btn-milk"   onclick="sendCall('milk',   this)">
+      <div class="call-btn-inner">
+        <span class="icon">🍼</span>
+        <div>
+          <div class="label">ミルク</div>
+          <div class="sublabel">ミルクの準備をお願い</div>
+        </div>
+      </div>
+    </button>
+
+    <button class="call-btn btn-change" onclick="sendCall('change', this)">
+      <div class="call-btn-inner">
+        <span class="icon">🔄</span>
+        <div>
+          <div class="label">変わって</div>
+          <div class="sublabel">交代をお願い</div>
+        </div>
+      </div>
+    </button>
+
+    <button class="call-btn btn-other"  onclick="sendCall('other',  this)">
+      <div class="call-btn-inner">
+        <span class="icon">📢</span>
+        <div>
+          <div class="label">その他</div>
+          <div class="sublabel">来てください</div>
+        </div>
+      </div>
+    </button>
+  </div>
+
+  <div class="recv-section">
+    <div class="recv-header">
+      <div class="section-label">受信した呼び出し</div>
+      <button class="clear-btn" onclick="clearNotifs()">クリア</button>
+    </div>
+    <div class="notif-list" id="notifList">
+      <div class="empty-msg" id="emptyMsg">まだ通知はありません</div>
+    </div>
+  </div>
+
+</div>
+
+<!-- Settings Modal -->
+<div class="modal-bg" id="modalBg">
+  <div class="modal">
+    <h2>⚙️ 設定</h2>
+    <div class="desc">2人で同じチャンネル名を使います</div>
+    <label>チャンネル名</label>
+    <input type="text" id="channelInput" placeholder="例: family-yamada-2024" autocomplete="off" autocapitalize="none">
+    <div class="hint">
+      半角英数字とハイフンのみ。<br>
+      他の人に推測されにくい名前にしてください。<br>
+      （例: family-名字-生年など）
+    </div>
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeSettings()">キャンセル</button>
+      <button class="btn-save"   onclick="saveSettings()">保存する</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const NTFY = 'https://ntfy.sh';
+
+const TYPES = {
+  milk:   { icon: '🍼', label: 'ミルク',  msg: 'ミルクの準備をお願い！', priority: 'default' },
+  change: { icon: '🔄', label: '変わって', msg: '交代してください！',    priority: 'high' },
+  other:  { icon: '📢', label: 'その他',  msg: '来てください！',        priority: 'high' },
+};
+
+let channel = '';
+let es = null;
+let sending = false;
+
+// ---- Init ----
+function init() {
+  channel = localStorage.getItem('nurse_channel') || '';
+  updateStatus();
+  if (channel) connectSSE();
+  requestNotifPermission();
+
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('sw.js').catch(() => {});
+  }
+}
+
+// ---- Status bar ----
+function updateStatus() {
+  const dot  = document.getElementById('statusDot');
+  const text = document.getElementById('statusText');
+  if (!channel) {
+    dot.className  = 'status-dot setup';
+    text.innerHTML = 'チャンネル未設定 — ⚙️をタップして設定';
+  } else {
+    dot.className  = es ? 'status-dot connected' : 'status-dot disconnected';
+    text.innerHTML = `チャンネル: <strong>${channel}</strong>`;
+  }
+}
+
+// ---- Send ----
+async function sendCall(type, btn) {
+  if (!channel) { openSettings(); return; }
+  if (sending) return;
+  sending = true;
+
+  // Ripple
+  addRipple(btn, event);
+
+  const t = TYPES[type];
+  try {
+    const res = await fetch(`${NTFY}/${channel}`, {
+      method: 'POST',
+      headers: {
+        'Title':    `ナースコール: ${t.label}`,
+        'Priority': t.priority,
+        'Tags':     type === 'milk' ? 'baby_bottle' : type === 'change' ? 'arrows_counterclockwise' : 'mega',
+      },
+      body: t.msg,
+    });
+    if (!res.ok) throw new Error(res.status);
+    showToast(`${t.icon} 送信しました！`);
+  } catch {
+    showToast('❌ 送信失敗。通信を確認してください');
+  } finally {
+    sending = false;
+  }
+}
+
+function addRipple(btn, ev) {
+  const r = document.createElement('span');
+  r.className = 'ripple';
+  const rect = btn.getBoundingClientRect();
+  const size = Math.max(rect.width, rect.height);
+  r.style.cssText = `width:${size}px;height:${size}px;left:${(rect.width - size)/2}px;top:${(rect.height - size)/2}px`;
+  btn.appendChild(r);
+  r.addEventListener('animationend', () => r.remove());
+}
+
+// ---- SSE (receive) ----
+function connectSSE() {
+  if (es) { es.close(); es = null; }
+  if (!channel) return;
+
+  es = new EventSource(`${NTFY}/${channel}/sse`);
+
+  es.onopen = () => updateStatus();
+
+  es.onmessage = (e) => {
+    try {
+      const data = JSON.parse(e.data);
+      if (data.event === 'message') onReceive(data);
+    } catch {}
+  };
+
+  es.onerror = () => {
+    es.close(); es = null;
+    updateStatus();
+    setTimeout(connectSSE, 6000);
+  };
+}
+
+function onReceive(data) {
+  const msg = data.message || '';
+  let t = TYPES.other;
+  if (msg.includes('ミルク'))   t = TYPES.milk;
+  else if (msg.includes('交代')) t = TYPES.change;
+
+  addNotifItem(t, msg);
+
+  // Vibrate
+  if ('vibrate' in navigator) navigator.vibrate([300, 100, 300, 100, 300]);
+
+  // Flash
+  const flash = document.createElement('div');
+  flash.className = 'flash';
+  document.body.appendChild(flash);
+  flash.addEventListener('animationend', () => flash.remove());
+
+  // Browser notification (background)
+  if (Notification.permission === 'granted') {
+    new Notification(data.title || `ナースコール: ${t.label}`, {
+      body: msg,
+      icon: 'icon.svg',
+      vibrate: [300, 100, 300],
+      requireInteraction: true,
+    });
+  }
+
+  // Sound beep
+  playBeep();
+}
+
+function addNotifItem(t, msg) {
+  const list = document.getElementById('notifList');
+  document.getElementById('emptyMsg')?.remove();
+
+  const time = new Date().toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' });
+  const el = document.createElement('div');
+  el.className = 'notif-item';
+  el.innerHTML = `
+    <span class="notif-icon">${t.icon}</span>
+    <div class="notif-body">
+      <div class="notif-name">${t.label}</div>
+      <div class="notif-msg">${msg}</div>
+    </div>
+    <span class="notif-time">${time}</span>
+  `;
+  list.insertBefore(el, list.firstChild);
+  while (list.children.length > 6) list.removeChild(list.lastChild);
+}
+
+function clearNotifs() {
+  const list = document.getElementById('notifList');
+  list.innerHTML = '<div class="empty-msg" id="emptyMsg">まだ通知はありません</div>';
+}
+
+// ---- Sound ----
+function playBeep() {
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    [0, 0.3].forEach(delay => {
+      const o = ctx.createOscillator();
+      const g = ctx.createGain();
+      o.connect(g); g.connect(ctx.destination);
+      o.frequency.value = 880;
+      g.gain.setValueAtTime(0.3, ctx.currentTime + delay);
+      g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + delay + 0.25);
+      o.start(ctx.currentTime + delay);
+      o.stop(ctx.currentTime + delay + 0.25);
+    });
+  } catch {}
+}
+
+// ---- Notification permission ----
+async function requestNotifPermission() {
+  if ('Notification' in window && Notification.permission === 'default') {
+    await Notification.requestPermission();
+  }
+}
+
+// ---- Toast ----
+let toastTimer;
+function showToast(msg) {
+  const existing = document.querySelector('.toast');
+  if (existing) existing.remove();
+  clearTimeout(toastTimer);
+
+  const t = document.createElement('div');
+  t.className = 'toast';
+  t.textContent = msg;
+  document.body.appendChild(t);
+  toastTimer = setTimeout(() => t.remove(), 2200);
+}
+
+// ---- Settings ----
+function openSettings() {
+  document.getElementById('channelInput').value = channel;
+  document.getElementById('modalBg').classList.add('open');
+  setTimeout(() => document.getElementById('channelInput').focus(), 100);
+}
+
+function closeSettings() {
+  document.getElementById('modalBg').classList.remove('open');
+}
+
+function saveSettings() {
+  const val = document.getElementById('channelInput').value.trim().replace(/[^a-zA-Z0-9\-_]/g, '');
+  if (!val) { showToast('チャンネル名を入力してください'); return; }
+
+  const changed = val !== channel;
+  channel = val;
+  localStorage.setItem('nurse_channel', channel);
+  closeSettings();
+  updateStatus();
+  if (changed) connectSSE();
+  requestNotifPermission();
+  showToast('✅ 保存しました');
+}
+
+document.getElementById('channelInput').addEventListener('keydown', e => {
+  if (e.key === 'Enter') saveSettings();
+});
+
+// Close modal on background tap
+document.getElementById('modalBg').addEventListener('click', e => {
+  if (e.target === e.currentTarget) closeSettings();
+});
+
+init();
+</script>
+</body>
+</html>
